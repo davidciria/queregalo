@@ -1,0 +1,17 @@
+{
+  "name": "queregalo-server",
+  "version": "1.0.0",
+  "description": "Backend for gift list sharing application",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6",
+    "uuid": "^9.0.0",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2"
+  }
+}

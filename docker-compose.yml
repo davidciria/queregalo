@@ -1,0 +1,16 @@
+services:
+  queregalo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - queregalo-data:/app/data
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  queregalo-data:
+    driver: local
