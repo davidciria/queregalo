@@ -3,7 +3,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const db = require('./database');
+const dbModule = require('./database');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Servir archivos estáticos del frontend
 app.use(express.static(path.join(__dirname, '../public')));
+
+// Obtener referencia a la base de datos
+let db;
 
 // Función para generar IDs de grupo seguros y difíciles de fuzzear
 function generateSecureGroupId() {
@@ -30,38 +34,44 @@ function generateSecureGroupId() {
 
 // ENDPOINTS DE GRUPOS
 // Crear un nuevo grupo
-app.post('/api/groups', (req, res) => {
+app.post('/api/groups', async (req, res) => {
   const { name } = req.body;
   if (!name) {
     return res.status(400).json({ error: 'El nombre del grupo es requerido' });
   }
 
-  const groupId = generateSecureGroupId();
-  db.run('INSERT INTO groups (id, name) VALUES (?, ?)', [groupId, name], (err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error al crear el grupo' });
-    }
+  try {
+    const groupId = generateSecureGroupId();
+    await db.collection('groups').insertOne({
+      id: groupId,
+      name,
+      created_at: new Date()
+    });
     res.json({ groupId, name });
-  });
+  } catch (error) {
+    console.error('Error al crear el grupo:', error);
+    res.status(500).json({ error: 'Error al crear el grupo' });
+  }
 });
 
 // Obtener información del grupo
-app.get('/api/groups/:groupId', (req, res) => {
+app.get('/api/groups/:groupId', async (req, res) => {
   const { groupId } = req.params;
-  db.get('SELECT * FROM groups WHERE id = ?', [groupId], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error al obtener el grupo' });
-    }
-    if (!row) {
+  try {
+    const group = await db.collection('groups').findOne({ id: groupId });
+    if (!group) {
       return res.status(404).json({ error: 'Grupo no encontrado' });
     }
-    res.json(row);
-  });
+    res.json(group);
+  } catch (error) {
+    console.error('Error al obtener el grupo:', error);
+    res.status(500).json({ error: 'Error al obtener el grupo' });
+  }
 });
 
 // ENDPOINTS DE USUARIOS
 // Crear o obtener usuario en un grupo
-app.post('/api/groups/:groupId/users', (req, res) => {
+app.post('/api/groups/:groupId/users', async (req, res) => {
   const { groupId } = req.params;
   const { name } = req.body;
 
@@ -69,60 +79,54 @@ app.post('/api/groups/:groupId/users', (req, res) => {
     return res.status(400).json({ error: 'El nombre del usuario es requerido' });
   }
 
-  // Verificar que el grupo existe
-  db.get('SELECT id FROM groups WHERE id = ?', [groupId], (err, group) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error al verificar el grupo' });
-    }
+  try {
+    // Verificar que el grupo existe
+    const group = await db.collection('groups').findOne({ id: groupId });
     if (!group) {
       return res.status(404).json({ error: 'Grupo no encontrado' });
     }
 
     // Verificar si el usuario ya existe en el grupo
-    db.get(
-      'SELECT id FROM users WHERE group_id = ? AND name = ?',
-      [groupId, name],
-      (err, user) => {
-        if (err) {
-          return res.status(500).json({ error: 'Error al verificar usuario' });
-        }
+    let user = await db.collection('users').findOne({ group_id: groupId, name });
 
-        if (user) {
-          // El usuario ya existe
-          res.json({ userId: user.id, groupId, name });
-        } else {
-          // Crear nuevo usuario
-          const userId = uuidv4().substring(0, 8);
-          db.run(
-            'INSERT INTO users (id, group_id, name) VALUES (?, ?, ?)',
-            [userId, groupId, name],
-            (err) => {
-              if (err) {
-                return res.status(500).json({ error: 'Error al crear usuario' });
-              }
-              res.json({ userId, groupId, name });
-            }
-          );
-        }
-      }
-    );
-  });
+    if (user) {
+      // El usuario ya existe
+      res.json({ userId: user.id, groupId, name });
+    } else {
+      // Crear nuevo usuario
+      const userId = uuidv4().substring(0, 8);
+      await db.collection('users').insertOne({
+        id: userId,
+        group_id: groupId,
+        name,
+        created_at: new Date()
+      });
+      res.json({ userId, groupId, name });
+    }
+  } catch (error) {
+    console.error('Error al crear/obtener usuario:', error);
+    res.status(500).json({ error: 'Error al crear usuario' });
+  }
 });
 
 // Obtener usuarios de un grupo
-app.get('/api/groups/:groupId/users', (req, res) => {
+app.get('/api/groups/:groupId/users', async (req, res) => {
   const { groupId } = req.params;
-  db.all('SELECT id, name FROM users WHERE group_id = ?', [groupId], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error al obtener usuarios' });
-    }
-    res.json(rows || []);
-  });
+  try {
+    const users = await db.collection('users')
+      .find({ group_id: groupId })
+      .project({ id: 1, name: 1 })
+      .toArray();
+    res.json(users || []);
+  } catch (error) {
+    console.error('Error al obtener usuarios:', error);
+    res.status(500).json({ error: 'Error al obtener usuarios' });
+  }
 });
 
 // ENDPOINTS DE REGALOS
 // Añadir regalo
-app.post('/api/groups/:groupId/users/:userId/gifts', (req, res) => {
+app.post('/api/groups/:groupId/users/:userId/gifts', async (req, res) => {
   const { groupId, userId } = req.params;
   const { name, price, location } = req.body;
 
@@ -130,50 +134,82 @@ app.post('/api/groups/:groupId/users/:userId/gifts', (req, res) => {
     return res.status(400).json({ error: 'Todos los campos son requeridos' });
   }
 
-  const giftId = uuidv4().substring(0, 8);
-  db.run(
-    'INSERT INTO gifts (id, user_id, name, price, location) VALUES (?, ?, ?, ?, ?)',
-    [giftId, userId, name, price, location],
-    (err) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error al crear regalo' });
-      }
-      res.json({ giftId, userId, name, price, location, locked_by: null });
-    }
-  );
+  try {
+    const giftId = uuidv4().substring(0, 8);
+    await db.collection('gifts').insertOne({
+      id: giftId,
+      user_id: userId,
+      name,
+      price,
+      location,
+      locked_by: null,
+      created_at: new Date()
+    });
+    res.json({ giftId, userId, name, price, location, locked_by: null });
+  } catch (error) {
+    console.error('Error al crear regalo:', error);
+    res.status(500).json({ error: 'Error al crear regalo' });
+  }
 });
 
 // Obtener regalos de un usuario
-app.get('/api/groups/:groupId/users/:userId/gifts', (req, res) => {
+app.get('/api/groups/:groupId/users/:userId/gifts', async (req, res) => {
   const { userId } = req.params;
-  db.all('SELECT * FROM gifts WHERE user_id = ?', [userId], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error al obtener regalos' });
-    }
-    res.json(rows || []);
-  });
+  try {
+    const gifts = await db.collection('gifts')
+      .find({ user_id: userId })
+      .toArray();
+    res.json(gifts || []);
+  } catch (error) {
+    console.error('Error al obtener regalos:', error);
+    res.status(500).json({ error: 'Error al obtener regalos' });
+  }
 });
 
 // Obtener todos los regalos de un grupo (para ver los de otros)
-app.get('/api/groups/:groupId/gifts', (req, res) => {
+app.get('/api/groups/:groupId/gifts', async (req, res) => {
   const { groupId } = req.params;
-  db.all(
-    `SELECT g.*, u.name as user_name
-     FROM gifts g
-     JOIN users u ON g.user_id = u.id
-     WHERE u.group_id = ?`,
-    [groupId],
-    (err, rows) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error al obtener regalos' });
-      }
-      res.json(rows || []);
-    }
-  );
+  try {
+    // Usar aggregation pipeline para hacer el equivalente de un JOIN
+    const gifts = await db.collection('gifts')
+      .aggregate([
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user_id',
+            foreignField: 'id',
+            as: 'user_info'
+          }
+        },
+        {
+          $unwind: '$user_info'
+        },
+        {
+          $match: {
+            'user_info.group_id': groupId
+          }
+        },
+        {
+          $addFields: {
+            user_name: '$user_info.name'
+          }
+        },
+        {
+          $project: {
+            user_info: 0
+          }
+        }
+      ])
+      .toArray();
+    res.json(gifts || []);
+  } catch (error) {
+    console.error('Error al obtener regalos:', error);
+    res.status(500).json({ error: 'Error al obtener regalos' });
+  }
 });
 
 // Bloquear un regalo
-app.put('/api/gifts/:giftId/lock', (req, res) => {
+app.put('/api/gifts/:giftId/lock', async (req, res) => {
   const { giftId } = req.params;
   const { lockedBy } = req.body;
 
@@ -181,11 +217,9 @@ app.put('/api/gifts/:giftId/lock', (req, res) => {
     return res.status(400).json({ error: 'El ID del usuario que bloquea es requerido' });
   }
 
-  // Primero verificar si el regalo ya está bloqueado (evitar race conditions)
-  db.get('SELECT locked_by FROM gifts WHERE id = ?', [giftId], (err, gift) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error al verificar regalo' });
-    }
+  try {
+    // Primero verificar si el regalo ya está bloqueado (evitar race conditions)
+    const gift = await db.collection('gifts').findOne({ id: giftId });
 
     if (!gift) {
       return res.status(404).json({ error: 'Regalo no encontrado' });
@@ -201,36 +235,32 @@ app.put('/api/gifts/:giftId/lock', (req, res) => {
       return res.json({ success: true });
     }
 
-    // Bloquear el regalo
-    db.run(
-      'UPDATE gifts SET locked_by = ? WHERE id = ? AND locked_by IS NULL',
-      [lockedBy, giftId],
-      function(err) {
-        if (err) {
-          return res.status(500).json({ error: 'Error al bloquear regalo' });
-        }
-
-        // Verificar si la actualización fue exitosa
-        if (this.changes === 0) {
-          return res.status(409).json({ error: 'Este regalo ya fue asignado a otro usuario' });
-        }
-
-        res.json({ success: true });
-      }
+    // Bloquear el regalo (solo si no está bloqueado)
+    const result = await db.collection('gifts').updateOne(
+      { id: giftId, locked_by: null },
+      { $set: { locked_by: lockedBy } }
     );
-  });
+
+    // Verificar si la actualización fue exitosa
+    if (result.matchedCount === 0) {
+      return res.status(409).json({ error: 'Este regalo ya fue asignado a otro usuario' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error al bloquear regalo:', error);
+    res.status(500).json({ error: 'Error al bloquear regalo' });
+  }
 });
 
 // Desbloquear un regalo
-app.put('/api/gifts/:giftId/unlock', (req, res) => {
+app.put('/api/gifts/:giftId/unlock', async (req, res) => {
   const { giftId } = req.params;
   const { unlockedBy } = req.body;
 
-  // Primero verificar que quien intenta desbloquear es quien lo bloqueó
-  db.get('SELECT locked_by FROM gifts WHERE id = ?', [giftId], (err, gift) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error al verificar regalo' });
-    }
+  try {
+    // Primero verificar que quien intenta desbloquear es quien lo bloqueó
+    const gift = await db.collection('gifts').findOne({ id: giftId });
 
     if (!gift) {
       return res.status(404).json({ error: 'Regalo no encontrado' });
@@ -247,24 +277,27 @@ app.put('/api/gifts/:giftId/unlock', (req, res) => {
     }
 
     // Desbloquear el regalo
-    db.run('UPDATE gifts SET locked_by = NULL WHERE id = ?', [giftId], (err) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error al desbloquear regalo' });
-      }
-      res.json({ success: true });
-    });
-  });
+    await db.collection('gifts').updateOne(
+      { id: giftId },
+      { $set: { locked_by: null } }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error al desbloquear regalo:', error);
+    res.status(500).json({ error: 'Error al desbloquear regalo' });
+  }
 });
 
 // Eliminar regalo
-app.delete('/api/gifts/:giftId', (req, res) => {
+app.delete('/api/gifts/:giftId', async (req, res) => {
   const { giftId } = req.params;
-  db.run('DELETE FROM gifts WHERE id = ?', [giftId], (err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error al eliminar regalo' });
-    }
+  try {
+    await db.collection('gifts').deleteOne({ id: giftId });
     res.json({ success: true });
-  });
+  } catch (error) {
+    console.error('Error al eliminar regalo:', error);
+    res.status(500).json({ error: 'Error al eliminar regalo' });
+  }
 });
 
 // Servir el index.html para rutas no definidas (SPA)
@@ -272,11 +305,19 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Inicializar base de datos y iniciar servidor
-db.init(() => {
-  app.listen(PORT, () => {
-    console.log(`Servidor escuchando en puerto ${PORT}`);
+// Inicializar MongoDB y iniciar servidor
+dbModule.connect()
+  .then(() => {
+    db = dbModule.getDb();
+    return dbModule.init(() => {
+      app.listen(PORT, () => {
+        console.log(`Servidor escuchando en puerto ${PORT}`);
+      });
+    });
+  })
+  .catch((error) => {
+    console.error('Error al inicializar la aplicación:', error);
+    process.exit(1);
   });
-});
 
 module.exports = app;

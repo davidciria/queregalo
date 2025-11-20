@@ -1,75 +1,64 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { MongoClient } = require('mongodb');
+require('dotenv').config();
 
-const dbPath = path.join(__dirname, '../data/queregalo.db');
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://thedacima99_db_user:rMVdW2ZqcvV3fMyV@queregalo.aa9hovk.mongodb.net/?appName=QueRegalo';
+const DB_NAME = 'queregalo';
 
-// Crear conexión a la base de datos
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error al conectar a la base de datos:', err);
-  } else {
-    console.log('Conectado a SQLite');
+let client;
+let db;
+
+const connect = async () => {
+  try {
+    client = new MongoClient(MONGODB_URI);
+    await client.connect();
+    db = client.db(DB_NAME);
+    console.log('Conectado a MongoDB');
+    return db;
+  } catch (error) {
+    console.error('Error al conectar a MongoDB:', error);
+    throw error;
   }
-});
-
-// Inicializar la base de datos con las tablas necesarias
-const init = (callback) => {
-  db.serialize(() => {
-    // Tabla de grupos
-    db.run(`
-      CREATE TABLE IF NOT EXISTS groups (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Tabla de usuarios
-    db.run(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        group_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(group_id) REFERENCES groups(id),
-        UNIQUE(group_id, name)
-      )
-    `);
-
-    // Tabla de regalos
-    db.run(`
-      CREATE TABLE IF NOT EXISTS gifts (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        price TEXT,
-        location TEXT,
-        locked_by TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(user_id) REFERENCES users(id),
-        FOREIGN KEY(locked_by) REFERENCES users(id)
-      )
-    `, (err) => {
-      if (err) {
-        console.error('Error al crear tablas:', err);
-      } else {
-        console.log('Tablas de base de datos inicializadas');
-      }
-      if (callback) callback();
-    });
-  });
 };
 
-module.exports = {
-  db,
-  init,
-  run: function(sql, params, callback) {
-    db.run(sql, params, callback);
-  },
-  get: function(sql, params, callback) {
-    db.get(sql, params, callback);
-  },
-  all: function(sql, params, callback) {
-    db.all(sql, params, callback);
+const init = async (callback) => {
+  try {
+    // Crear colecciones si no existen
+    const collections = await db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+
+    if (!collectionNames.includes('groups')) {
+      await db.createCollection('groups');
+      await db.collection('groups').createIndex({ id: 1 }, { unique: true });
+      console.log('Colección "groups" creada');
+    }
+
+    if (!collectionNames.includes('users')) {
+      await db.createCollection('users');
+      await db.collection('users').createIndex({ id: 1 }, { unique: true });
+      await db.collection('users').createIndex({ group_id: 1, name: 1 }, { unique: true });
+      console.log('Colección "users" creada');
+    }
+
+    if (!collectionNames.includes('gifts')) {
+      await db.createCollection('gifts');
+      await db.collection('gifts').createIndex({ id: 1 }, { unique: true });
+      await db.collection('gifts').createIndex({ user_id: 1 });
+      console.log('Colección "gifts" creada');
+    }
+
+    console.log('Colecciones de base de datos inicializadas');
+    if (callback) callback();
+  } catch (error) {
+    console.error('Error al inicializar base de datos:', error);
+    if (callback) callback();
   }
+};
+
+const getDb = () => db;
+
+module.exports = {
+  connect,
+  init,
+  getDb,
+  db: { get: () => db }
 };
