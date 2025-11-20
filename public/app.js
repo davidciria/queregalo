@@ -88,10 +88,19 @@ class QueRegaloApp {
     }
   }
 
+  // API BASE URL
+  apiCall(path, options = {}) {
+    const url = `/.netlify/functions/api${path}`;
+    return fetch(url, {
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      ...options,
+    });
+  }
+
   // API CALLS
   async fetchGroup(callback) {
     try {
-      const response = await fetch(`/api/groups/${this.state.groupId}`);
+      const response = await this.apiCall(`/api/groups/${this.state.groupId}`);
       const group = await response.json();
       this.state.groupName = group.name;
       await this.fetchUsers();
@@ -105,9 +114,8 @@ class QueRegaloApp {
 
   async createGroup(name) {
     try {
-      const response = await fetch('/api/groups', {
+      const response = await this.apiCall('/api/groups', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
       const data = await response.json();
@@ -125,7 +133,7 @@ class QueRegaloApp {
 
   async fetchUsers() {
     try {
-      const response = await fetch(`/api/groups/${this.state.groupId}/users`);
+      const response = await this.apiCall(`/api/groups/${this.state.groupId}/users`);
       this.state.users = await response.json();
       await this.fetchAllGifts();
     } catch (error) {
@@ -135,9 +143,8 @@ class QueRegaloApp {
 
   async createOrSelectUser(name) {
     try {
-      const response = await fetch(`/api/groups/${this.state.groupId}/users`, {
+      const response = await this.apiCall(`/api/groups/${this.state.groupId}/users`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
       const data = await response.json();
@@ -157,7 +164,7 @@ class QueRegaloApp {
 
   async fetchAllGifts() {
     try {
-      const response = await fetch(`/api/groups/${this.state.groupId}/gifts`);
+      const response = await this.apiCall(`/api/groups/${this.state.groupId}/gifts`);
       this.state.allGifts = await response.json();
       this.organizeGifts();
     } catch (error) {
@@ -167,7 +174,7 @@ class QueRegaloApp {
 
   async fetchMyGifts() {
     try {
-      const response = await fetch(`/api/groups/${this.state.groupId}/users/${this.state.userId}/gifts`);
+      const response = await this.apiCall(`/api/groups/${this.state.groupId}/users/${this.state.userId}/gifts`);
       this.state.myGifts = await response.json();
     } catch (error) {
       console.error('Error al obtener mis regalos:', error);
@@ -188,11 +195,10 @@ class QueRegaloApp {
 
   async addGift(name, price, location) {
     try {
-      const response = await fetch(
+      const response = await this.apiCall(
         `/api/groups/${this.state.groupId}/users/${this.state.userId}/gifts`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, price, location }),
         }
       );
@@ -214,9 +220,8 @@ class QueRegaloApp {
     try {
       const content = document.querySelector('.content');
       const scrollPos = content ? content.scrollTop : 0;
-      const response = await fetch(`/api/gifts/${giftId}/lock`, {
+      const response = await this.apiCall(`/api/gifts/${giftId}/lock`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lockedBy: this.state.userId }),
       });
       if (!response.ok) {
@@ -235,9 +240,8 @@ class QueRegaloApp {
     try {
       const content = document.querySelector('.content');
       const scrollPos = content ? content.scrollTop : 0;
-      const response = await fetch(`/api/gifts/${giftId}/unlock`, {
+      const response = await this.apiCall(`/api/gifts/${giftId}/unlock`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ unlockedBy: this.state.userId }),
       });
       if (!response.ok) {
@@ -256,7 +260,7 @@ class QueRegaloApp {
     if (!confirm('¿Estás seguro de que deseas eliminar este regalo?')) return;
 
     try {
-      const response = await fetch(`/api/gifts/${giftId}`, { method: 'DELETE' });
+      const response = await this.apiCall(`/api/gifts/${giftId}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Error al eliminar regalo');
       await this.fetchMyGifts();
       await this.fetchAllGifts();

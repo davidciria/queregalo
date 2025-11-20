@@ -21,12 +21,5 @@
   to = "/index.html"
   status = 200
 
-# Redirects para API endpoints → Netlify Functions
-# Una sola function (api.js) maneja todas las rutas
-# /api/* → /.netlify/functions/api
-# La function parsea el path completo y determina qué hacer
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api"
-  status = 200
-  force = true
+# Frontend llama directamente a /.netlify/functions/api
+# No se necesitan redirects
