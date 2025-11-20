@@ -1,182 +1,205 @@
-# 🎁 QueRegalo - Aplicación de Listas de Regalos Compartidas
+# QueRegalo - Gift Wishlist Sharing App
 
-Una aplicación web responsive para que grupos de personas compartan sus listas de regalos de forma privada y segura.
+Una aplicación web para compartir listas de deseos con grupos de amigos y familiares. Permite crear grupos, añadir regalos y "bloquear" regalos que piensas regalar (como sorpresa).
 
-## Características
+## Features
 
-- ✅ Crear grupos con nombres únicos
-- ✅ Compartir grupos con enlace único
-- ✅ Cada usuario gestiona su lista de regalos
-- ✅ Ver regalos de otros usuarios del grupo
-- ✅ Bloquear regalos para indicar que los vas a comprar (secreto para el propietario)
-- ✅ Interface responsive para móviles y escritorio
-- ✅ Base de datos SQLite persistente con Docker
-- ✅ 100% PWA compatible
+✅ **Gestión de Grupos** - Crea grupos con enlace compartible
+✅ **Listas de Regalos** - Cada usuario añade sus regalos deseados
+✅ **Bloqueo de Regalos** - "Bloquea" un regalo cuando planeas regalarlo (sorpresa)
+✅ **Persistencia Cloud** - Los datos se guardan en MongoDB Atlas
+✅ **Multi-dispositivo** - Accede desde diferentes dispositivos con el mismo enlace
+✅ **Responsive** - Totalmente optimizado para móvil
+✅ **Seguro** - IDs de grupo imposibles de adivinar
 
-## Requisitos
+## Stack Tecnológico
 
-- Docker y Docker Compose
+- **Frontend**: HTML + CSS + Vanilla JavaScript
+- **Backend**: Express.js (Node.js)
+- **Base de Datos**: MongoDB Atlas (Cloud)
+- **Hosting**: Netlify
 
-## Instalación y Ejecución
+## Instalación Local
 
-### Con Docker (Recomendado)
+### Requisitos
 
+- Node.js 14+
+- MongoDB Atlas cluster (cuenta gratuita)
+
+### Pasos
+
+1. **Clonar repositorio**
 ```bash
-cd /home/orangepi/queregalo
-
-# Construir e iniciar los contenedores
-docker-compose up --build
-
-# La aplicación estará disponible en http://localhost:3000
+git clone https://github.com/davidciria/queregalo.git
+cd queregalo
 ```
 
-### Sin Docker (Desarrollo local)
-
+2. **Crear archivo .env**
 ```bash
-# Instalar dependencias
+cp .env.example .env
+```
+
+3. **Configurar MongoDB URI en .env**
+```bash
+# .env
+MONGODB_URI=tu_mongodb_connection_string
+PORT=3000
+NODE_ENV=development
+```
+
+4. **Instalar dependencias**
+```bash
 cd server
 npm install
-cd ..
-
-# Iniciar el servidor
-cd server
-npm start
-
-# En otra terminal, puedes servir los archivos públicos
-# Por defecto se sirven desde http://localhost:3000
 ```
 
-## Cómo Usar
+5. **Iniciar servidor**
+```bash
+npm start
+```
 
-### Para el Creador del Grupo
+6. **Acceder a la app**
+```
+http://localhost:3000
+```
 
-1. Abre la aplicación en http://localhost:3000
-2. Haz clic en "Crear un nuevo grupo"
-3. Ingresa el nombre del grupo (Ej: "Navidad 2024")
-4. Copia el enlace único que se genera
-5. Comparte el enlace con las personas del grupo
-6. Ingresa tu nombre para crear tu usuario
-7. Añade tus regalos indicando:
-   - Nombre del regalo
-   - Precio aproximado
-   - Dónde encontrarlo (URL o descripción de tienda)
+## Desarrollo
 
-### Para los Participantes
-
-1. Abre el enlace que compartió el creador del grupo
-2. Selecciona tu nombre o crea uno nuevo
-3. Añade tus regalos
-4. Ve los regalos de otros participantes
-5. Si quieres comprar un regalo de alguien, haz clic en "Quiero regalarlo"
-6. El regalo se bloqueará y solo tú sabrás que lo estás comprando
-7. La persona que recibe el regalo verá que está bloqueado pero no sabrá quién lo compra
-
-## Estructura del Proyecto
+### Estructura del Proyecto
 
 ```
 queregalo/
-├── server/
-│   ├── app.js           # Servidor Express y endpoints API
-│   ├── database.js      # Configuración de SQLite
-│   └── package.json     # Dependencias del servidor
-├── public/
-│   ├── index.html       # HTML principal
-│   ├── app.js          # Lógica de la aplicación frontend
+├── public/              # Frontend estático
+│   ├── index.html      # SPA principal
+│   ├── app.js          # Lógica de la app (vanilla JS)
 │   └── styles.css      # Estilos responsive
-├── Dockerfile          # Configuración del contenedor
-├── docker-compose.yml  # Orquestación de servicios
-└── README.md          # Este archivo
+├── server/             # Backend Express
+│   ├── app.js          # API endpoints
+│   ├── database.js     # Configuración MongoDB
+│   └── package.json    # Dependencias
+├── .env.example        # Variables de entorno ejemplo
+├── netlify.toml        # Configuración Netlify
+└── Procfile            # Comando para ejecutar en Netlify
 ```
 
-## API Endpoints
+### Endpoints API
 
-### Grupos
-- `POST /api/groups` - Crear nuevo grupo
-- `GET /api/groups/:groupId` - Obtener información del grupo
+**Grupos**
+- `POST /api/groups` - Crear grupo
+- `GET /api/groups/:groupId` - Obtener grupo
 
-### Usuarios
-- `POST /api/groups/:groupId/users` - Crear o seleccionar usuario
-- `GET /api/groups/:groupId/users` - Obtener usuarios del grupo
+**Usuarios**
+- `POST /api/groups/:groupId/users` - Crear usuario
+- `GET /api/groups/:groupId/users` - Listar usuarios
 
-### Regalos
-- `POST /api/groups/:groupId/users/:userId/gifts` - Añadir regalo
-- `GET /api/groups/:groupId/users/:userId/gifts` - Obtener regalos del usuario
-- `GET /api/groups/:groupId/gifts` - Obtener todos los regalos del grupo
-- `PUT /api/gifts/:giftId/lock` - Bloquear un regalo
-- `PUT /api/gifts/:giftId/unlock` - Desbloquear un regalo
-- `DELETE /api/gifts/:giftId` - Eliminar un regalo
+**Regalos**
+- `POST /api/groups/:groupId/users/:userId/gifts` - Crear regalo
+- `GET /api/groups/:groupId/gifts` - Obtener todos los regalos
+- `PUT /api/gifts/:giftId/lock` - Bloquear regalo
+- `PUT /api/gifts/:giftId/unlock` - Desbloquear regalo
+- `DELETE /api/gifts/:giftId` - Eliminar regalo
 
-## Base de Datos
+## Despliegue
 
-La aplicación utiliza SQLite con las siguientes tablas:
+### Opción 1: Netlify (Recomendado)
 
-### groups
-- `id`: Identificador único (8 caracteres)
-- `name`: Nombre del grupo
-- `created_at`: Timestamp de creación
+Ver [NETLIFY_DEPLOYMENT.md](./NETLIFY_DEPLOYMENT.md) para instrucciones detalladas.
 
-### users
-- `id`: Identificador único (8 caracteres)
-- `group_id`: Referencia al grupo
-- `name`: Nombre del usuario
-- `created_at`: Timestamp de creación
+**Requisitos:**
+- Cuenta Netlify (gratis)
+- MongoDB Atlas (gratis)
 
-### gifts
-- `id`: Identificador único (8 caracteres)
-- `user_id`: Referencia al usuario propietario
-- `name`: Nombre del regalo
-- `price`: Precio aproximado
-- `location`: Dónde encontrarlo
-- `locked_by`: ID del usuario que lo bloqueó (NULL si no está bloqueado)
-- `created_at`: Timestamp de creación
+**Pasos rápidos:**
+1. Conecta tu repositorio a Netlify
+2. Selecciona rama `netlify-deployment`
+3. Añade variable de entorno `MONGODB_URI` en Netlify
+4. Deploy automático
 
-## Persistencia de Datos
+### Opción 2: Heroku (Alternativa)
 
-Con Docker, los datos se guardan en un volumen persistente (`queregalo-data`). Esto significa que:
-
-- Los datos persisten incluso si detienes o eliminas el contenedor
-- Puedes hacer backup del volumen
-- Los datos están seguros en caso de reinicio del sistema
-
-## Personalización
-
-### Cambiar el Puerto
-
-Edita `docker-compose.yml`:
-```yaml
-ports:
-  - "8080:3000"  # Cambia el primer número al puerto que desees
+```bash
+heroku create
+heroku config:set MONGODB_URI=your_mongodb_uri
+git push heroku main
 ```
 
-### Variables de Entorno
+## Cómo Usar la App
 
-Puedes añadir variables en `docker-compose.yml`:
-```yaml
-environment:
-  - NODE_ENV=production
-  - PORT=3000
-```
+### Para el Propietario del Grupo
+
+1. **Crear grupo** - Haz clic en "Crear Grupo" con tu nombre
+2. **Compartir enlace** - Copia el enlace y comparte con otros
+3. **Añadir regalos** - Haz clic en "Añadir regalo" y completa:
+   - Nombre del regalo
+   - Precio aproximado
+   - Dónde lo venden (Amazon, tienda física, etc.)
+4. **Ver qué regalos quieren otros** - Los regalos bloqueados no te los muestra
+
+### Para Otros Participantes
+
+1. **Acceder al enlace del grupo** - El propietario te envía el enlace
+2. **Seleccionar tu nombre** o registrarse nuevo
+3. **Ver listas de otros** - "Regalos de tus amigos"
+4. **Bloquear regalo** - "Quiero regalarlo" = sorpresa confirmada
+5. **Cambiar de opinión** - "Desbloquear" si cambias de idea
+
+## Características Técnicas
+
+### Seguridad
+
+- **IDs de Grupo Seguros** - Combinación de UUID + timestamp + números aleatorios
+- **Race Condition Protection** - SQL queries atómicas para evitar doble bloqueo
+- **HTTPS en Netlify** - Encriptación en tránsito automática
+- **No almacena contraseñas** - Sistema anónimo por defecto
+
+### Persistencia
+
+- **MongoDB Atlas** - Los datos persisten en la nube
+- **Sincronización** - Múltiples dispositivos ven los mismos datos
+- **Sin límite de tiempo** - Los datos no expiran
+- **Backups automáticos** - MongoDB Atlas hace backups diarios
+
+### Performance
+
+- **SPA Frontend** - Cambios instantáneos sin recargar página
+- **API Endpoints** - Respuestas rápidas de la BD
+- **Lazy Loading** - Scroll suave incluso con muchos regalos
+- **Mobile First** - Optimizado para smartphones
 
 ## Troubleshooting
 
-### La aplicación no inicia
-1. Verifica que Docker y Docker Compose estén instalados
-2. Comprueba que el puerto 3000 no esté en uso
-3. Revisa los logs: `docker-compose logs -f`
+**Problema**: No puedo acceder a la app
+- Solución: Verifica que el servidor está corriendo (`npm start` en carpeta `server`)
 
-### No se guardan los datos
-1. Verifica que el volumen existe: `docker volume ls`
-2. Comprueba que el contenedor tiene permisos de escritura
+**Problema**: Los datos no se guardan
+- Solución: Comprueba que `MONGODB_URI` es correcta y MongoDB está disponible
 
-### Errores de conexión
-1. Asegúrate de usar `http://localhost:3000` (no https)
-2. Limpia el caché del navegador
-3. Abre las herramientas de desarrollador (F12) para ver errores
+**Problema**: El regalo se bloquea pero sigue visible
+- Comportamiento correcto: El propietario nunca ve qué regalos están bloqueados
+
+**Problema**: El enlace no funciona en otro dispositivo
+- Solución: Copia exactamente el enlace con los parámetros `?group=` y `?user=`
+
+## Roadmap
+
+- [ ] Autenticación con cuentas
+- [ ] Fotos de regalos
+- [ ] Notificaciones cuando alguien bloquea un regalo
+- [ ] Historial de regalos regalados
+- [ ] Integración con Amazon Wishlist
+
+## Contribuir
+
+¿Encontraste un bug o tienes una idea? Abre un issue en [GitHub Issues](https://github.com/davidciria/queregalo/issues)
 
 ## Licencia
 
-Libre para usar y modificar
+MIT
+
+## Autor
+
+Creado por [David Ciria](https://github.com/davidciria)
 
 ## Soporte
 
-Para reportar bugs o sugerencias, crea un issue o contacta al desarrollador.
+Para preguntas o problemas, abre un issue en GitHub.

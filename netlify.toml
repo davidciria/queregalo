@@ -1,18 +1,29 @@
+# QueRegalo - Netlify Configuration
+# Soporta dos opciones de despliegue:
+# 1. Express tradicional (cd server && npm install && npm start)
+# 2. Netlify Functions (descomenta la sección de functions abajo)
+
 [build]
-  command = "npm install"
-  functions = "netlify/functions"
+  # Para despliegue con Express tradicional
+  command = "cd server && npm install"
   publish = "public"
 
+  # Descomenta para usar Netlify Functions (opción avanzada)
+  # functions = "netlify/functions"
+
 [dev]
-  command = "npm run dev"
+  # Ejecuta Express localmente durante desarrollo
+  command = "npm start --prefix server"
   port = 3000
 
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
+# Redirects para SPA (Single Page Application)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Descomenta lo siguiente si usas Netlify Functions
+# [[redirects]]
+#   from = "/api/*"
+#   to = "/.netlify/functions/api/:splat"
+#   status = 200
