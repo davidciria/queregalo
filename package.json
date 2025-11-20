@@ -1,0 +1,17 @@
+{
+  "name": "queregalo",
+  "version": "1.0.0",
+  "description": "Gift wishlist sharing application with Netlify Functions",
+  "private": true,
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "npm install --prefix server && echo 'Build complete'"
+  },
+  "dependencies": {
+    "mongodb": "^6.3.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}

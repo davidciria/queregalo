@@ -1,18 +1,18 @@
 # QueRegalo - Netlify Configuration
-# Esta configuración despliega Express + MongoDB en Netlify
+# Serverless con Netlify Functions (sin servidor persistente)
+# Compatible con FREE TIER de Netlify
 
 [build]
-  # Build command: solo instala dependencias
-  # Netlify automáticamente ejecuta npm start (definido en Procfile)
-  command = "cd server && npm install"
+  # Build command: instala dependencias para Netlify Functions
+  command = "npm install"
   # Publish: carpeta del frontend
   publish = "public"
-  # No necesitas functions para esta arquitectura
+  # Functions directory
   functions = "netlify/functions"
 
 [dev]
-  # Desarrollo local
-  command = "npm start --prefix server"
+  # Desarrollo local con netlify dev
+  command = "netlify dev"
   port = 3000
 
 # Redirects para SPA (Single Page Application)
@@ -21,5 +21,11 @@
   to = "/index.html"
   status = 200
 
-# IMPORTANTE: Los endpoints /api/* van directamente a Express
-# No necesitan redirect porque Express está sirviendo todo
+# Redirects para API endpoints → Netlify Functions
+# /api/groups → /.netlify/functions/groups
+# /api/groups/:id → /.netlify/functions/groups/:id
+# etc.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
