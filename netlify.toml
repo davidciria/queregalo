@@ -22,10 +22,11 @@
   status = 200
 
 # Redirects para API endpoints → Netlify Functions
-# /api/groups → /.netlify/functions/groups
-# /api/groups/:id → /.netlify/functions/groups/:id
-# etc.
+# Una sola function (api.js) maneja todas las rutas
+# /api/* → /.netlify/functions/api
+# La function parsea el path completo y determina qué hacer
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to = "/.netlify/functions/api"
   status = 200
+  force = true
