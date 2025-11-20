@@ -1,18 +1,17 @@
 # QueRegalo - Netlify Configuration
-# Soporta dos opciones de despliegue:
-# 1. Express tradicional (cd server && npm install && npm start)
-# 2. Netlify Functions (descomenta la sección de functions abajo)
+# Esta configuración despliega Express + MongoDB en Netlify
 
 [build]
-  # Para despliegue con Express tradicional
+  # Build command: solo instala dependencias
+  # Netlify automáticamente ejecuta npm start (definido en Procfile)
   command = "cd server && npm install"
+  # Publish: carpeta del frontend
   publish = "public"
-
-  # Descomenta para usar Netlify Functions (opción avanzada)
-  # functions = "netlify/functions"
+  # No necesitas functions para esta arquitectura
+  functions = "netlify/functions"
 
 [dev]
-  # Ejecuta Express localmente durante desarrollo
+  # Desarrollo local
   command = "npm start --prefix server"
   port = 3000
 
@@ -22,8 +21,5 @@
   to = "/index.html"
   status = 200
 
-# Descomenta lo siguiente si usas Netlify Functions
-# [[redirects]]
-#   from = "/api/*"
-#   to = "/.netlify/functions/api/:splat"
-#   status = 200
+# IMPORTANTE: Los endpoints /api/* van directamente a Express
+# No necesitan redirect porque Express está sirviendo todo
