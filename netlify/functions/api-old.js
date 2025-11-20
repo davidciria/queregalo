@@ -1,109 +1,7 @@
-// Standalone API function para Netlify - sin dependencias en otros archivos
-const { MongoClient } = require('mongodb');
-const { v4: uuidv4 } = require('uuid');
+const { connectToDatabase, ensureCollections } = require('./db');
+const { generateSecureGroupId, generateUserId, generateGiftId, sendResponse, sendError } = require('./utils');
 
-const MONGODB_URI = process.env.MONGODB_URI;
-const DB_NAME = 'queregalo';
-
-let cachedClient = null;
-let cachedDb = null;
-
-// ==================== HELPERS ====================
-function generateSecureGroupId() {
-  const uuid = uuidv4().replace(/-/g, '');
-  const timestamp = Date.now().toString(36);
-  const randomPart = Math.random().toString(36).substring(2, 8);
-  const groupId = (uuid.substring(0, 8) + timestamp + randomPart).toLowerCase();
-  return groupId;
-}
-
-function generateUserId() {
-  return uuidv4().substring(0, 8);
-}
-
-function generateGiftId() {
-  return uuidv4().substring(0, 8);
-}
-
-function sendResponse(statusCode, data) {
-  return {
-    statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    },
-    body: JSON.stringify(data),
-  };
-}
-
-function sendError(statusCode, message) {
-  return sendResponse(statusCode, { error: message });
-}
-
-// ==================== DATABASE ====================
-async function connectToDatabase() {
-  if (cachedClient && cachedDb) {
-    return cachedDb;
-  }
-
-  try {
-    const client = new MongoClient(MONGODB_URI, {
-      retryWrites: false,
-      maxPoolSize: 5,
-      socketTimeoutMS: 45000,
-      serverSelectionTimeoutMS: 10000,
-      tls: true,
-      tlsInsecure: process.env.NODE_ENV === 'development',
-      tlsAllowInvalidCertificates: process.env.NODE_ENV === 'development',
-    });
-
-    await client.connect();
-    cachedClient = client;
-    cachedDb = client.db(DB_NAME);
-
-    console.log('✅ Connected to MongoDB');
-    return cachedDb;
-  } catch (error) {
-    console.error('❌ Error connecting to MongoDB:', error.message);
-    throw error;
-  }
-}
-
-async function ensureCollections(db) {
-  try {
-    const collections = await db.listCollections().toArray();
-    const collectionNames = collections.map(c => c.name);
-
-    if (!collectionNames.includes('groups')) {
-      await db.createCollection('groups');
-      await db.collection('groups').createIndex({ id: 1 }, { unique: true });
-    }
-
-    if (!collectionNames.includes('users')) {
-      await db.createCollection('users');
-      await db.collection('users').createIndex({ id: 1 }, { unique: true });
-      await db.collection('users').createIndex({ group_id: 1, name: 1 }, { unique: true });
-    }
-
-    if (!collectionNames.includes('gifts')) {
-      await db.createCollection('gifts');
-      await db.collection('gifts').createIndex({ id: 1 }, { unique: true });
-      await db.collection('gifts').createIndex({ user_id: 1 });
-    }
-
-    console.log('✅ Collections ready');
-  } catch (error) {
-    console.log('Collections already exist or cannot create');
-  }
-}
-
-// ==================== MAIN HANDLER ====================
 exports.handler = async (event, context) => {
-  console.log(`${event.httpMethod} ${event.path}`);
-  console.log('MONGODB_URI configured:', !!MONGODB_URI);
-
   // CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return sendResponse(200, {});
@@ -149,14 +47,17 @@ exports.handler = async (event, context) => {
 
       if (!name) return sendError(400, 'El nombre del usuario es requerido');
 
+      // Verificar que el grupo existe
       const group = await db.collection('groups').findOne({ id: groupId });
       if (!group) return sendError(404, 'Grupo no encontrado');
 
+      // Verificar si el usuario ya existe
       let user = await db.collection('users').findOne({ group_id: groupId, name });
       if (user) {
         return sendResponse(200, { userId: user.id, groupId, name });
       }
 
+      // Crear nuevo usuario
       const userId = generateUserId();
       await db.collection('users').insertOne({
         id: userId,
@@ -262,18 +163,22 @@ exports.handler = async (event, context) => {
 
       if (!lockedBy) return sendError(400, 'El ID del usuario que bloquea es requerido');
 
+      // Verificar si el regalo ya está bloqueado
       const gift = await db.collection('gifts').findOne({ id: giftId });
 
       if (!gift) return sendError(404, 'Regalo no encontrado');
 
+      // Si ya está bloqueado por otro, devolver error
       if (gift.locked_by && gift.locked_by !== lockedBy) {
         return sendError(409, 'Este regalo ya fue asignado a otro usuario');
       }
 
+      // Si ya está bloqueado por el mismo usuario, devolver success
       if (gift.locked_by === lockedBy) {
         return sendResponse(200, { success: true });
       }
 
+      // Bloquear el regalo
       const result = await db.collection('gifts').updateOne(
         { id: giftId, locked_by: null },
         { $set: { locked_by: lockedBy } }
@@ -292,18 +197,22 @@ exports.handler = async (event, context) => {
       const giftId = unlockMatch[1];
       const { unlockedBy } = JSON.parse(event.body || '{}');
 
+      // Verificar que quien intenta desbloquear es quien lo bloqueó
       const gift = await db.collection('gifts').findOne({ id: giftId });
 
       if (!gift) return sendError(404, 'Regalo no encontrado');
 
+      // Si no está bloqueado, no hay nada que desbloquear
       if (!gift.locked_by) {
         return sendResponse(200, { success: true });
       }
 
+      // Solo quien lo bloqueó puede desbloquearlo
       if (unlockedBy && gift.locked_by !== unlockedBy) {
         return sendError(403, 'Solo quien bloqueó el regalo puede desbloquearlo');
       }
 
+      // Desbloquear el regalo
       await db.collection('gifts').updateOne(
         { id: giftId },
         { $set: { locked_by: null } }
@@ -320,9 +229,9 @@ exports.handler = async (event, context) => {
       return sendResponse(200, { success: true });
     }
 
-    return sendError(404, `Endpoint no encontrado: ${method} ${path}`);
+    return sendError(404, 'Endpoint no encontrado');
   } catch (error) {
-    console.error('❌ API Error:', error);
-    return sendError(500, error.message || 'Error interno del servidor');
+    console.error('Error en API:', error);
+    return sendError(500, error.message);
   }
 };
