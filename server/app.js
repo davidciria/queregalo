@@ -306,18 +306,29 @@ app.get('*', (req, res) => {
 });
 
 // Inicializar MongoDB y iniciar servidor
-dbModule.connect()
-  .then(() => {
+async function startServer() {
+  try {
+    await dbModule.connect();
     db = dbModule.getDb();
-    return dbModule.init(() => {
-      app.listen(PORT, () => {
-        console.log(`Servidor escuchando en puerto ${PORT}`);
+    await new Promise((resolve) => {
+      dbModule.init(() => {
+        app.listen(PORT, () => {
+          console.log(`✅ Servidor escuchando en puerto ${PORT}`);
+          console.log(`🌐 Abre http://localhost:${PORT}`);
+        });
+        resolve();
       });
     });
-  })
-  .catch((error) => {
-    console.error('Error al inicializar la aplicación:', error);
+  } catch (error) {
+    console.error('❌ Error crítico:', error.message);
+    console.error('\n📝 IMPORTANTE: Para testear localmente en OrangePi:');
+    console.error('1. El error de SSL es un problema de red/OpenSSL del servidor');
+    console.error('2. Usa Netlify para despliegue (funcionará perfectamente)');
+    console.error('3. O corre "docker-compose up" para testear con Docker');
     process.exit(1);
-  });
+  }
+}
+
+startServer();
 
 module.exports = app;

@@ -9,13 +9,26 @@ let db;
 
 const connect = async () => {
   try {
-    client = new MongoClient(MONGODB_URI);
+    // Opciones para mejorar la estabilidad de conexión
+    const options = {
+      retryWrites: false,
+      maxPoolSize: 5,
+      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: 10000,
+      // Opciones SSL para evitar problemas de certificados
+      tls: true,
+      tlsInsecure: process.env.NODE_ENV === 'development',
+      tlsAllowInvalidCertificates: process.env.NODE_ENV === 'development',
+    };
+
+    console.log('Conectando a MongoDB...', MONGODB_URI.split('@')[1] || 'localhost');
+    client = new MongoClient(MONGODB_URI, options);
     await client.connect();
     db = client.db(DB_NAME);
-    console.log('Conectado a MongoDB');
+    console.log('✅ Conectado a MongoDB correctamente');
     return db;
   } catch (error) {
-    console.error('Error al conectar a MongoDB:', error);
+    console.error('❌ Error al conectar a MongoDB:', error.message);
     throw error;
   }
 };
