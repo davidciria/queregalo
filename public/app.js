@@ -10,6 +10,8 @@ class QueRegaloApp {
       allGifts: [],
       myGifts: [],
       otherUsersGifts: {},
+      loading: false,
+      loadingMessage: '',
     };
 
     this.init();
@@ -88,6 +90,13 @@ class QueRegaloApp {
     }
   }
 
+  // Loading indicators
+  setLoading(isLoading, message = '') {
+    this.state.loading = isLoading;
+    this.state.loadingMessage = message;
+    this.render();
+  }
+
   // API BASE URL
   apiCall(path, options = {}) {
     const url = `/.netlify/functions/api/api${path}`;
@@ -114,6 +123,7 @@ class QueRegaloApp {
 
   async createGroup(name) {
     try {
+      this.setLoading(true, 'Creando grupo...');
       const response = await this.apiCall('/groups', {
         method: 'POST',
         body: JSON.stringify({ name }),
@@ -124,9 +134,11 @@ class QueRegaloApp {
       this.state.view = 'user-select';
       this.saveStateToUrl();
       await this.fetchUsers();
+      this.setLoading(false);
       this.render();
     } catch (error) {
       console.error('Error al crear grupo:', error);
+      this.setLoading(false);
       this.showAlert('Error al crear el grupo', 'error');
     }
   }
@@ -143,6 +155,7 @@ class QueRegaloApp {
 
   async createOrSelectUser(name) {
     try {
+      this.setLoading(true, 'Creando usuario...');
       const response = await this.apiCall(`/groups/${this.state.groupId}/users`, {
         method: 'POST',
         body: JSON.stringify({ name }),
@@ -155,9 +168,11 @@ class QueRegaloApp {
       this.saveUserToCookie(this.state.groupId, data.name);
       await this.fetchUsers();
       await this.fetchMyGifts();
+      this.setLoading(false);
       this.render();
     } catch (error) {
       console.error('Error al crear/seleccionar usuario:', error);
+      this.setLoading(false);
       this.showAlert('Error al crear usuario', 'error');
     }
   }
@@ -195,6 +210,7 @@ class QueRegaloApp {
 
   async addGift(name, price, location) {
     try {
+      this.setLoading(true, 'Agregando regalo...');
       const response = await this.apiCall(
         `/groups/${this.state.groupId}/users/${this.state.userId}/gifts`,
         {
@@ -208,16 +224,19 @@ class QueRegaloApp {
       }
       await this.fetchMyGifts();
       await this.fetchAllGifts();
+      this.setLoading(false);
       this.render();
       this.showAlert('Regalo añadido exitosamente', 'success');
     } catch (error) {
       console.error('Error al añadir regalo:', error);
+      this.setLoading(false);
       this.showAlert(error.message || 'Error al añadir regalo', 'error');
     }
   }
 
   async lockGift(giftId) {
     try {
+      this.setLoading(true, 'Bloqueando regalo...');
       const content = document.querySelector('.content');
       const scrollPos = content ? content.scrollTop : 0;
       const response = await this.apiCall(`/gifts/${giftId}/lock`, {
@@ -229,15 +248,18 @@ class QueRegaloApp {
         throw new Error(error.error);
       }
       await this.fetchAllGifts();
+      this.setLoading(false);
       this.renderWithScroll(scrollPos);
     } catch (error) {
       console.error('Error al bloquear regalo:', error);
+      this.setLoading(false);
       this.showAlert(error.message || 'Error al bloquear regalo', 'error');
     }
   }
 
   async unlockGift(giftId) {
     try {
+      this.setLoading(true, 'Desbloqueando regalo...');
       const content = document.querySelector('.content');
       const scrollPos = content ? content.scrollTop : 0;
       const response = await this.apiCall(`/gifts/${giftId}/unlock`, {
@@ -249,9 +271,11 @@ class QueRegaloApp {
         throw new Error(error.error);
       }
       await this.fetchAllGifts();
+      this.setLoading(false);
       this.renderWithScroll(scrollPos);
     } catch (error) {
       console.error('Error al desbloquear regalo:', error);
+      this.setLoading(false);
       this.showAlert(error.message || 'Error al desbloquear regalo', 'error');
     }
   }
@@ -260,14 +284,17 @@ class QueRegaloApp {
     if (!confirm('¿Estás seguro de que deseas eliminar este regalo?')) return;
 
     try {
+      this.setLoading(true, 'Eliminando regalo...');
       const response = await this.apiCall(`/gifts/${giftId}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Error al eliminar regalo');
       await this.fetchMyGifts();
       await this.fetchAllGifts();
+      this.setLoading(false);
       this.render();
       this.showAlert('Regalo eliminado', 'success');
     } catch (error) {
       console.error('Error al eliminar regalo:', error);
+      this.setLoading(false);
       this.showAlert('Error al eliminar regalo', 'error');
     }
   }
@@ -394,6 +421,19 @@ class QueRegaloApp {
       app.innerHTML = this.renderUserSelect();
     } else if (this.state.view === 'user') {
       app.innerHTML = this.renderUserView();
+    }
+
+    // Agregar overlay de loading si está activo
+    if (this.state.loading) {
+      const loadingOverlay = document.createElement('div');
+      loadingOverlay.className = 'loading-overlay';
+      loadingOverlay.innerHTML = `
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <p>${this.state.loadingMessage}</p>
+        </div>
+      `;
+      app.appendChild(loadingOverlay);
     }
 
     this.attachEventListeners();
