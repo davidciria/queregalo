@@ -1,5 +1,5 @@
 // Standalone API function para Netlify - sin dependencias en otros archivos
-const { MongoClient } = require('mongodb');
+const { MongoClient, ServerApiVersion } = require('mongodb');
 const { v4: uuidv4 } = require('uuid');
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -49,14 +49,21 @@ async function connectToDatabase() {
   }
 
   try {
+    // Opciones MongoDB para conectar a Atlas desde Netlify
+    // autoSelectFamily: false evita problemas de TLS en algunas arquitecturas
+    // tlsAllowInvalidCertificates: true permite conexiones sin validar certificados
     const client = new MongoClient(MONGODB_URI, {
+      serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+      },
+      autoSelectFamily: false,
+      tlsAllowInvalidCertificates: true,
       retryWrites: false,
-      maxPoolSize: 5,
-      socketTimeoutMS: 45000,
-      serverSelectionTimeoutMS: 10000,
-      tls: true,
-      tlsInsecure: process.env.NODE_ENV === 'development',
-      tlsAllowInvalidCertificates: process.env.NODE_ENV === 'development',
+      maxPoolSize: 1,
+      socketTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 5000,
     });
 
     await client.connect();
