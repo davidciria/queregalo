@@ -407,9 +407,14 @@ class QueRegaloApp {
     }
   }
 
+  formatPrice(price) {
+    if (!price) return '0€';
+    return `${price}€`;
+  }
+
   formatLocation(location) {
     if (this.isUrlValid(location)) {
-      return `<a href="${location}" target="_blank" class="gift-location-url">Ver en tienda →</a>`;
+      return `<a href="${location}" target="_blank" class="gift-location-url">${location}</a>`;
     }
     return location;
   }
@@ -550,7 +555,7 @@ class QueRegaloApp {
         </div>
         <div class="content">
           <div class="breadcrumb">
-            <button id="back-to-group" class="back-button">← Cambiar usuario</button>
+            <button id="back-to-group" class="back-button">↼ No soy ${this.state.userName}</button>
           </div>
 
           <!-- MIS REGALOS -->
@@ -564,7 +569,7 @@ class QueRegaloApp {
                 <div class="gift-card">
                   <div class="gift-header">
                     <span class="gift-name">${gift.name}</span>
-                    <span class="gift-price">${gift.price}</span>
+                    <span class="gift-price">${this.formatPrice(gift.price)}</span>
                   </div>
                   <div class="gift-location">
                     <span class="gift-location-label">Dónde encontrarlo:</span> ${this.formatLocation(gift.location)}
@@ -599,7 +604,7 @@ class QueRegaloApp {
                     <div class="gift-card ${gift.locked_by ? 'locked' : ''}">
                       <div class="gift-header">
                         <span class="gift-name">${gift.name}</span>
-                        <span class="gift-price">${gift.price}</span>
+                        <span class="gift-price">${this.formatPrice(gift.price)}</span>
                       </div>
                       <div class="gift-location">
                         <span class="gift-location-label">Dónde encontrarlo:</span> ${this.formatLocation(gift.location)}
