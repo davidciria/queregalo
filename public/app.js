@@ -90,7 +90,7 @@ class QueRegaloApp {
 
   // API BASE URL
   apiCall(path, options = {}) {
-    const url = `/.netlify/functions/api${path}`;
+    const url = `/.netlify/functions/api/api${path}`;
     return fetch(url, {
       headers: { 'Content-Type': 'application/json', ...options.headers },
       ...options,
@@ -100,7 +100,7 @@ class QueRegaloApp {
   // API CALLS
   async fetchGroup(callback) {
     try {
-      const response = await this.apiCall(`/api/groups/${this.state.groupId}`);
+      const response = await this.apiCall(`/groups/${this.state.groupId}`);
       const group = await response.json();
       this.state.groupName = group.name;
       await this.fetchUsers();
@@ -114,7 +114,7 @@ class QueRegaloApp {
 
   async createGroup(name) {
     try {
-      const response = await this.apiCall('/api/groups', {
+      const response = await this.apiCall('/groups', {
         method: 'POST',
         body: JSON.stringify({ name }),
       });
@@ -133,7 +133,7 @@ class QueRegaloApp {
 
   async fetchUsers() {
     try {
-      const response = await this.apiCall(`/api/groups/${this.state.groupId}/users`);
+      const response = await this.apiCall(`/groups/${this.state.groupId}/users`);
       this.state.users = await response.json();
       await this.fetchAllGifts();
     } catch (error) {
@@ -143,7 +143,7 @@ class QueRegaloApp {
 
   async createOrSelectUser(name) {
     try {
-      const response = await this.apiCall(`/api/groups/${this.state.groupId}/users`, {
+      const response = await this.apiCall(`/groups/${this.state.groupId}/users`, {
         method: 'POST',
         body: JSON.stringify({ name }),
       });
@@ -164,7 +164,7 @@ class QueRegaloApp {
 
   async fetchAllGifts() {
     try {
-      const response = await this.apiCall(`/api/groups/${this.state.groupId}/gifts`);
+      const response = await this.apiCall(`/groups/${this.state.groupId}/gifts`);
       this.state.allGifts = await response.json();
       this.organizeGifts();
     } catch (error) {
@@ -174,7 +174,7 @@ class QueRegaloApp {
 
   async fetchMyGifts() {
     try {
-      const response = await this.apiCall(`/api/groups/${this.state.groupId}/users/${this.state.userId}/gifts`);
+      const response = await this.apiCall(`/groups/${this.state.groupId}/users/${this.state.userId}/gifts`);
       this.state.myGifts = await response.json();
     } catch (error) {
       console.error('Error al obtener mis regalos:', error);
@@ -196,7 +196,7 @@ class QueRegaloApp {
   async addGift(name, price, location) {
     try {
       const response = await this.apiCall(
-        `/api/groups/${this.state.groupId}/users/${this.state.userId}/gifts`,
+        `/groups/${this.state.groupId}/users/${this.state.userId}/gifts`,
         {
           method: 'POST',
           body: JSON.stringify({ name, price, location }),
@@ -220,7 +220,7 @@ class QueRegaloApp {
     try {
       const content = document.querySelector('.content');
       const scrollPos = content ? content.scrollTop : 0;
-      const response = await this.apiCall(`/api/gifts/${giftId}/lock`, {
+      const response = await this.apiCall(`/gifts/${giftId}/lock`, {
         method: 'PUT',
         body: JSON.stringify({ lockedBy: this.state.userId }),
       });
@@ -240,7 +240,7 @@ class QueRegaloApp {
     try {
       const content = document.querySelector('.content');
       const scrollPos = content ? content.scrollTop : 0;
-      const response = await this.apiCall(`/api/gifts/${giftId}/unlock`, {
+      const response = await this.apiCall(`/gifts/${giftId}/unlock`, {
         method: 'PUT',
         body: JSON.stringify({ unlockedBy: this.state.userId }),
       });
@@ -260,7 +260,7 @@ class QueRegaloApp {
     if (!confirm('¿Estás seguro de que deseas eliminar este regalo?')) return;
 
     try {
-      const response = await this.apiCall(`/api/gifts/${giftId}`, { method: 'DELETE' });
+      const response = await this.apiCall(`/gifts/${giftId}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Error al eliminar regalo');
       await this.fetchMyGifts();
       await this.fetchAllGifts();
