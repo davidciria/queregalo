@@ -70,8 +70,6 @@ async function connectToDatabase() {
     await client.connect();
     cachedClient = client;
     cachedDb = client.db(DB_NAME);
-
-    console.log('✅ Connected to MongoDB');
     return cachedDb;
   } catch (error) {
     console.error('❌ Error connecting to MongoDB:', error.message);
@@ -85,37 +83,19 @@ async function ensureCollections(db) {
   if (collectionsCreated) return;
 
   try {
-    const collections = await db.listCollections().toArray();
-    const collectionNames = collections.map(c => c.name);
-
-    if (!collectionNames.includes('groups')) {
-      await db.createCollection('groups');
-      await db.collection('groups').createIndex({ id: 1 }, { unique: true });
-    }
-
-    if (!collectionNames.includes('users')) {
-      await db.createCollection('users');
-      await db.collection('users').createIndex({ id: 1 }, { unique: true });
-      await db.collection('users').createIndex({ group_id: 1, name: 1 }, { unique: true });
-    }
-
-    if (!collectionNames.includes('gifts')) {
-      await db.createCollection('gifts');
-      await db.collection('gifts').createIndex({ id: 1 }, { unique: true });
-      await db.collection('gifts').createIndex({ user_id: 1 });
-    }
-
+    await db.collection('groups').createIndex({ id: 1 }, { unique: true });
+    await db.collection('users').createIndex({ id: 1 }, { unique: true });
+    await db.collection('users').createIndex({ group_id: 1, name: 1 }, { unique: true });
+    await db.collection('gifts').createIndex({ id: 1 }, { unique: true });
+    await db.collection('gifts').createIndex({ user_id: 1 });
     collectionsCreated = true;
   } catch (error) {
-    console.log('Collections already exist or cannot create');
+    // Índices ya existen, es normal
   }
 }
 
 // ==================== MAIN HANDLER ====================
 exports.handler = async (event, context) => {
-  console.log(`${event.httpMethod} ${event.path}`);
-  console.log('MONGODB_URI configured:', !!MONGODB_URI);
-
   // CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return sendResponse(200, {});
@@ -127,12 +107,7 @@ exports.handler = async (event, context) => {
 
     const method = event.httpMethod;
     // Extraer ruta sin el prefijo de la función
-    // event.path = "/.netlify/functions/api/api/groups"
-    // Necesitamos solo: "/api/groups"
-    const fullPath = event.path;
-    const path = fullPath.replace(/^\/.netlify\/functions\/api/, '');
-
-    console.log('Path:', path, 'Method:', method);
+    const path = event.path.replace(/^\/.netlify\/functions\/api/, '');
 
     // ============ GROUPS ============
     // POST /api/groups - Crear grupo

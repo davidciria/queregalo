@@ -109,14 +109,17 @@ class QueRegaloApp {
   // API CALLS
   async fetchGroup(callback) {
     try {
+      this.setLoading(true, 'Cargando grupo...');
       const response = await this.apiCall(`/groups/${this.state.groupId}`);
       const group = await response.json();
       this.state.groupName = group.name;
       await this.fetchUsers();
+      this.setLoading(false);
       this.render();
       if (callback) callback();
     } catch (error) {
       console.error('Error al obtener grupo:', error);
+      this.setLoading(false);
       this.showAlert('Error al cargar el grupo', 'error');
     }
   }
@@ -155,7 +158,7 @@ class QueRegaloApp {
 
   async createOrSelectUser(name) {
     try {
-      this.setLoading(true, 'Creando usuario...');
+      this.setLoading(true, 'Cargando usuario...');
       const response = await this.apiCall(`/groups/${this.state.groupId}/users`, {
         method: 'POST',
         body: JSON.stringify({ name }),
