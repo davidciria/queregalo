@@ -70,8 +70,12 @@ class QueRegaloApp {
     if (groupId && userName) {
       this.state.groupId = groupId;
       this.state.view = 'user-select';
-      this.fetchGroup(() => {
-        this.createOrSelectUser(decodeURIComponent(userName));
+      this.fetchGroup((error) => {
+        if (error) {
+          this.goToLanding();
+        } else {
+          this.createOrSelectUser(decodeURIComponent(userName));
+        }
       });
     } else if (groupId) {
       // Si hay un groupId en la URL, intentar cargar el usuario de la cookie si coincide el grupo
@@ -79,13 +83,21 @@ class QueRegaloApp {
       if (cookieData && cookieData.groupId === groupId) {
         this.state.groupId = groupId;
         this.state.view = 'user-select';
-        this.fetchGroup(() => {
-          this.createOrSelectUser(cookieData.userName);
+        this.fetchGroup((error) => {
+          if (error) {
+            this.goToLanding();
+          } else {
+            this.createOrSelectUser(cookieData.userName);
+          }
         });
       } else {
         this.state.groupId = groupId;
         this.state.view = 'user-select';
-        this.fetchGroup();
+        this.fetchGroup((error) => {
+          if (error) {
+            this.goToLanding();
+          }
+        });
       }
     }
   }
@@ -126,7 +138,15 @@ class QueRegaloApp {
     } catch (error) {
       console.error('Error al obtener grupo:', error);
       this.setLoading(false);
-      this.showAlert(error.message || 'Error al cargar el grupo', 'error');
+
+      const errorMessage = error.message || 'Error al cargar el grupo';
+      this.showAlert(errorMessage, 'error');
+
+      // Redirigir al inicio después de mostrar el error
+      setTimeout(() => {
+        this.goToLanding();
+      }, 2000);
+
       if (callback) callback(error);
     }
   }
@@ -314,6 +334,8 @@ class QueRegaloApp {
     this.state.view = 'landing';
     this.state.groupId = null;
     this.state.userId = null;
+    this.state.groupName = null;
+    this.state.userName = null;
     window.history.replaceState({}, '', '/');
     this.render();
   }
