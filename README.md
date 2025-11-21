@@ -95,11 +95,10 @@ All validations are enforced on both client and server.
 queregalo/
 ├── public/
 │   ├── index.html
-│   ├── app.js (main app logic)
+│   ├── app.js
 │   └── styles.css
 ├── netlify/functions/
-│   ├── api.js (serverless function)
-│   └── db.js (MongoDB connection)
+│   └── api.js
 ├── package.json
 ├── netlify.toml
 └── README.md
