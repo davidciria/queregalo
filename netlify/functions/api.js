@@ -8,6 +8,82 @@ const DB_NAME = 'queregalo';
 let cachedClient = null;
 let cachedDb = null;
 
+// ==================== VALIDATION HELPERS ====================
+function isString(value) {
+  return typeof value === 'string' && value !== '';
+}
+
+function isValidInteger(value) {
+  const num = Number(value);
+  return !isNaN(num) && Number.isInteger(num) && num > 0;
+}
+
+function isValidPrice(value) {
+  return isValidInteger(value);
+}
+
+function validateGroupName(name) {
+  if (!isString(name)) {
+    return { valid: false, error: 'El nombre del grupo debe ser un texto no vacío' };
+  }
+  if (name.length < 2) {
+    return { valid: false, error: 'El nombre del grupo debe tener al menos 2 caracteres' };
+  }
+  if (name.length > 100) {
+    return { valid: false, error: 'El nombre del grupo no puede exceder 100 caracteres' };
+  }
+  return { valid: true };
+}
+
+function validateUserName(name) {
+  if (!isString(name)) {
+    return { valid: false, error: 'El nombre del usuario debe ser un texto no vacío' };
+  }
+  if (name.length < 2) {
+    return { valid: false, error: 'El nombre del usuario debe tener al menos 2 caracteres' };
+  }
+  if (name.length > 100) {
+    return { valid: false, error: 'El nombre del usuario no puede exceder 100 caracteres' };
+  }
+  return { valid: true };
+}
+
+function validateGiftName(name) {
+  if (!isString(name)) {
+    return { valid: false, error: 'El nombre del regalo debe ser un texto no vacío' };
+  }
+  if (name.length < 2) {
+    return { valid: false, error: 'El nombre del regalo debe tener al menos 2 caracteres' };
+  }
+  if (name.length > 200) {
+    return { valid: false, error: 'El nombre del regalo no puede exceder 200 caracteres' };
+  }
+  return { valid: true };
+}
+
+function validateGiftPrice(price) {
+  if (!isValidPrice(price)) {
+    return { valid: false, error: 'El precio debe ser un número entero positivo (ejemplo: 50, no 50€)' };
+  }
+  if (price > 100000) {
+    return { valid: false, error: 'El precio no puede ser mayor a 100000' };
+  }
+  return { valid: true };
+}
+
+function validateGiftLocation(location) {
+  if (!isString(location)) {
+    return { valid: false, error: 'La ubicación del regalo debe ser un texto no vacío' };
+  }
+  if (location.length < 2) {
+    return { valid: false, error: 'La ubicación debe tener al menos 2 caracteres' };
+  }
+  if (location.length > 500) {
+    return { valid: false, error: 'La ubicación no puede exceder 500 caracteres' };
+  }
+  return { valid: true };
+}
+
 // ==================== HELPERS ====================
 function generateSecureGroupId() {
   const uuid = uuidv4().replace(/-/g, '');
@@ -113,7 +189,11 @@ exports.handler = async (event, context) => {
     // POST /api/groups - Crear grupo
     if (method === 'POST' && path === '/api/groups') {
       const { name } = JSON.parse(event.body || '{}');
-      if (!name) return sendError(400, 'El nombre del grupo es requerido');
+
+      const validation = validateGroupName(name);
+      if (!validation.valid) {
+        return sendError(400, validation.error);
+      }
 
       const groupId = generateSecureGroupId();
       await db.collection('groups').insertOne({
@@ -140,10 +220,13 @@ exports.handler = async (event, context) => {
       const groupId = createUserMatch[1];
       const { name } = JSON.parse(event.body || '{}');
 
-      if (!name) return sendError(400, 'El nombre del usuario es requerido');
+      const validation = validateUserName(name);
+      if (!validation.valid) {
+        return sendError(400, validation.error);
+      }
 
       const group = await db.collection('groups').findOne({ id: groupId });
-      if (!group) return sendError(404, 'Grupo no encontrado');
+      if (!group) return sendError(404, 'El grupo no existe');
 
       let user = await db.collection('users').findOne({ group_id: groupId, name });
       if (user) {
@@ -181,22 +264,49 @@ exports.handler = async (event, context) => {
       const userId = createGiftMatch[2];
       const { name, price, location } = JSON.parse(event.body || '{}');
 
-      if (!name || !price || !location) {
-        return sendError(400, 'Todos los campos son requeridos');
+      // Validar que todos los campos estén presentes
+      if (name === undefined || price === undefined || location === undefined) {
+        return sendError(400, 'Los campos nombre, precio y ubicación son requeridos');
       }
 
+      // Validar cada campo
+      const nameValidation = validateGiftName(name);
+      if (!nameValidation.valid) {
+        return sendError(400, nameValidation.error);
+      }
+
+      const priceValidation = validateGiftPrice(price);
+      if (!priceValidation.valid) {
+        return sendError(400, priceValidation.error);
+      }
+
+      const locationValidation = validateGiftLocation(location);
+      if (!locationValidation.valid) {
+        return sendError(400, locationValidation.error);
+      }
+
+      // Validar que el grupo exista
+      const group = await db.collection('groups').findOne({ id: groupId });
+      if (!group) return sendError(404, 'El grupo no existe');
+
+      // Validar que el usuario exista
+      const user = await db.collection('users').findOne({ id: userId });
+      if (!user || user.group_id !== groupId) return sendError(404, 'El usuario no existe en este grupo');
+
       const giftId = generateGiftId();
+      const priceAsInt = parseInt(price, 10);
+
       await db.collection('gifts').insertOne({
         id: giftId,
         user_id: userId,
         name,
-        price,
+        price: priceAsInt,
         location,
         locked_by: null,
         created_at: new Date(),
       });
 
-      return sendResponse(200, { giftId, userId, name, price, location, locked_by: null });
+      return sendResponse(200, { giftId, userId, name, price: priceAsInt, location, locked_by: null });
     }
 
     // GET /api/groups/:groupId/users/:userId/gifts - Regalos de un usuario
@@ -253,11 +363,15 @@ exports.handler = async (event, context) => {
       const giftId = lockMatch[1];
       const { lockedBy } = JSON.parse(event.body || '{}');
 
-      if (!lockedBy) return sendError(400, 'El ID del usuario que bloquea es requerido');
+      if (!isString(lockedBy)) return sendError(400, 'El ID del usuario que bloquea es requerido');
 
       const gift = await db.collection('gifts').findOne({ id: giftId });
 
       if (!gift) return sendError(404, 'Regalo no encontrado');
+
+      // Validar que el usuario que bloquea existe
+      const user = await db.collection('users').findOne({ id: lockedBy });
+      if (!user) return sendError(404, 'El usuario no existe');
 
       if (gift.locked_by && gift.locked_by !== lockedBy) {
         return sendError(409, 'Este regalo ya fue asignado a otro usuario');
@@ -284,6 +398,8 @@ exports.handler = async (event, context) => {
     if (method === 'PUT' && unlockMatch) {
       const giftId = unlockMatch[1];
       const { unlockedBy } = JSON.parse(event.body || '{}');
+
+      if (!isString(unlockedBy)) return sendError(400, 'El ID del usuario que desbloquea es requerido');
 
       const gift = await db.collection('gifts').findOne({ id: giftId });
 

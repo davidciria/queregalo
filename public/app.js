@@ -111,16 +111,23 @@ class QueRegaloApp {
     try {
       this.setLoading(true, 'Cargando grupo...');
       const response = await this.apiCall(`/groups/${this.state.groupId}`);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'El grupo no existe');
+      }
+
       const group = await response.json();
       this.state.groupName = group.name;
       await this.fetchUsers();
       this.setLoading(false);
       this.render();
-      if (callback) callback();
+      if (callback) callback(null);
     } catch (error) {
       console.error('Error al obtener grupo:', error);
       this.setLoading(false);
-      this.showAlert('Error al cargar el grupo', 'error');
+      this.showAlert(error.message || 'Error al cargar el grupo', 'error');
+      if (callback) callback(error);
     }
   }
 
@@ -467,7 +474,7 @@ class QueRegaloApp {
             <h2 class="section-title">Crear un nuevo grupo</h2>
             <div class="input-group">
               <label for="group-name">Nombre del grupo</label>
-              <input type="text" id="group-name" placeholder="Ej: Reyes Magos 2024">
+              <input type="text" id="group-name" placeholder="Ej: Reyes Magos 2024" minlength="2" maxlength="100" required>
             </div>
             <button class="button button-primary button-block" id="create-group-btn">
               Crear Grupo
@@ -485,7 +492,7 @@ class QueRegaloApp {
             </p>
             <div class="input-group">
               <label for="group-id">Código del grupo</label>
-              <input type="text" id="group-id" placeholder="Ej: a1b2c3d4">
+              <input type="text" id="group-id" placeholder="Ej: a1b2c3d4" minlength="3" required>
             </div>
             <button class="button button-secondary button-block" id="join-group-btn">
               Acceder al Grupo
@@ -535,7 +542,7 @@ class QueRegaloApp {
             <h3 class="section-title">O crea uno nuevo</h3>
             <div class="input-group">
               <label for="new-user-name">Tu nombre</label>
-              <input type="text" id="new-user-name" placeholder="Ej: Juan">
+              <input type="text" id="new-user-name" placeholder="Ej: Juan" minlength="2" maxlength="100" required>
             </div>
             <button class="button button-secondary button-block" id="create-user-btn">
               Crear Usuario
@@ -650,15 +657,15 @@ class QueRegaloApp {
           <form id="add-gift-form">
             <div class="input-group">
               <label for="gift-name">Nombre del regalo</label>
-              <input type="text" id="gift-name" placeholder="Ej: Auriculares Bluetooth" required>
+              <input type="text" id="gift-name" placeholder="Ej: Auriculares Bluetooth" required minlength="2" maxlength="200">
             </div>
             <div class="input-group">
-              <label for="gift-price">Precio aproximado</label>
-              <input type="text" id="gift-price" placeholder="Ej: 50€" required>
+              <label for="gift-price">Precio aproximado (número sin símbolo)</label>
+              <input type="number" id="gift-price" placeholder="Ej: 50" required min="1" max="100000" step="1">
             </div>
             <div class="input-group">
               <label for="gift-location">Dónde encontrarlo</label>
-              <textarea id="gift-location" placeholder="URL, nombre de tienda o descripción" required></textarea>
+              <textarea id="gift-location" placeholder="URL, nombre de tienda o descripción" required minlength="2" maxlength="500"></textarea>
             </div>
             <div class="button-group">
               <button type="button" class="button" id="cancel-gift-btn">Cancelar</button>
@@ -680,6 +687,14 @@ class QueRegaloApp {
           this.showAlert('Por favor ingresa un nombre para el grupo', 'error');
           return;
         }
+        if (name.length < 2) {
+          this.showAlert('El nombre del grupo debe tener al menos 2 caracteres', 'error');
+          return;
+        }
+        if (name.length > 100) {
+          this.showAlert('El nombre del grupo no puede exceder 100 caracteres', 'error');
+          return;
+        }
         this.createGroup(name);
       });
     }
@@ -692,10 +707,18 @@ class QueRegaloApp {
           this.showAlert('Por favor ingresa el código del grupo', 'error');
           return;
         }
+        if (groupId.length < 3) {
+          this.showAlert('El código del grupo debe tener al menos 3 caracteres', 'error');
+          return;
+        }
         this.state.groupId = groupId;
         this.state.view = 'user-select';
         this.saveStateToUrl();
-        this.fetchGroup();
+        this.fetchGroup((error) => {
+          if (error) {
+            this.goToLanding();
+          }
+        });
       });
     }
 
@@ -726,6 +749,14 @@ class QueRegaloApp {
         const name = document.getElementById('new-user-name').value.trim();
         if (!name) {
           this.showAlert('Por favor ingresa tu nombre', 'error');
+          return;
+        }
+        if (name.length < 2) {
+          this.showAlert('El nombre debe tener al menos 2 caracteres', 'error');
+          return;
+        }
+        if (name.length > 100) {
+          this.showAlert('El nombre no puede exceder 100 caracteres', 'error');
           return;
         }
         this.createOrSelectUser(name);
@@ -764,14 +795,35 @@ class QueRegaloApp {
       addGiftForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('gift-name').value.trim();
-        const price = document.getElementById('gift-price').value.trim();
+        const priceInput = document.getElementById('gift-price');
+        const price = priceInput.value.trim();
         const location = document.getElementById('gift-location').value.trim();
 
-        if (name && price && location) {
-          this.addGift(name, price, location);
-          document.getElementById('add-gift-modal').classList.remove('active');
-          addGiftForm.reset();
+        // Validaciones en frontend
+        if (!name) {
+          this.showAlert('Por favor ingresa el nombre del regalo', 'error');
+          return;
         }
+
+        if (!price) {
+          this.showAlert('Por favor ingresa el precio del regalo', 'error');
+          return;
+        }
+
+        const priceNum = parseInt(price, 10);
+        if (isNaN(priceNum) || priceNum < 1 || priceNum > 100000 || !Number.isInteger(priceNum)) {
+          this.showAlert('El precio debe ser un número entero entre 1 y 100000', 'error');
+          return;
+        }
+
+        if (!location) {
+          this.showAlert('Por favor ingresa dónde encontrar el regalo', 'error');
+          return;
+        }
+
+        this.addGift(name, priceNum, location);
+        document.getElementById('add-gift-modal').classList.remove('active');
+        addGiftForm.reset();
       });
     }
 
