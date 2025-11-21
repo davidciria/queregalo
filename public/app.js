@@ -329,6 +329,47 @@ class QueRegaloApp {
     }
   }
 
+  editGiftModal(giftId) {
+    const gift = this.state.myGifts.find(g => g.id === giftId);
+    if (!gift) return;
+
+    // Guardar el ID del regalo siendo editado
+    this.state.editingGiftId = giftId;
+
+    // Llenar el modal con los datos del regalo
+    document.getElementById('edit-gift-name').value = gift.name;
+    document.getElementById('edit-gift-price').value = gift.price;
+    document.getElementById('edit-gift-location').value = gift.location;
+
+    // Mostrar el modal
+    document.getElementById('edit-gift-modal').classList.add('active');
+  }
+
+  async editGift(giftId, name, price, location) {
+    try {
+      this.setLoading(true, 'Actualizando regalo...');
+      const response = await this.apiCall(`/gifts/${giftId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name, price, location }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error);
+      }
+
+      await this.fetchMyGifts();
+      await this.fetchAllGifts();
+      this.setLoading(false);
+      this.render();
+      this.showAlert('Regalo actualizado exitosamente', 'success');
+    } catch (error) {
+      console.error('Error al actualizar regalo:', error);
+      this.setLoading(false);
+      this.showAlert(error.message || 'Error al actualizar regalo', 'error');
+    }
+  }
+
   // NAVEGACIÓN
   goToLanding() {
     this.state.view = 'landing';
@@ -604,6 +645,9 @@ class QueRegaloApp {
                     <span class="gift-location-label">Dónde encontrarlo:</span> ${this.formatLocation(gift.location)}
                   </div>
                   <div class="gift-actions">
+                    <button class="button button-secondary button-small" data-edit-gift="${gift.id}" title="Editar regalo">
+                      ✏️
+                    </button>
                     <button class="button button-danger button-small" data-delete-gift="${gift.id}">
                       Eliminar
                     </button>
@@ -692,6 +736,34 @@ class QueRegaloApp {
             <div class="button-group">
               <button type="button" class="button" id="cancel-gift-btn">Cancelar</button>
               <button type="submit" class="button button-primary">Añadir Regalo</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- MODAL PARA EDITAR REGALO -->
+      <div class="modal" id="edit-gift-modal">
+        <div class="modal-content">
+          <button class="modal-close" id="close-edit-modal">×</button>
+          <div class="modal-header">
+            <h2>Editar regalo</h2>
+          </div>
+          <form id="edit-gift-form">
+            <div class="input-group">
+              <label for="edit-gift-name">Nombre del regalo</label>
+              <input type="text" id="edit-gift-name" placeholder="Ej: Auriculares Bluetooth" required minlength="2" maxlength="200">
+            </div>
+            <div class="input-group">
+              <label for="edit-gift-price">Precio aproximado (número sin símbolo)</label>
+              <input type="number" id="edit-gift-price" placeholder="Ej: 50" required min="1" max="100000" step="1">
+            </div>
+            <div class="input-group">
+              <label for="edit-gift-location">Dónde encontrarlo</label>
+              <textarea id="edit-gift-location" placeholder="URL, nombre de tienda o descripción" required minlength="2" maxlength="500"></textarea>
+            </div>
+            <div class="button-group">
+              <button type="button" class="button" id="cancel-edit-btn">Cancelar</button>
+              <button type="submit" class="button button-primary">Guardar Cambios</button>
             </div>
           </form>
         </div>
@@ -849,6 +921,14 @@ class QueRegaloApp {
       });
     }
 
+    // Edit gift buttons
+    const editGiftBtns = document.querySelectorAll('[data-edit-gift]');
+    editGiftBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.editGiftModal(btn.dataset.editGift);
+      });
+    });
+
     // Delete gift buttons
     const deleteGiftBtns = document.querySelectorAll('[data-delete-gift]');
     deleteGiftBtns.forEach(btn => {
@@ -873,12 +953,75 @@ class QueRegaloApp {
       });
     });
 
+    // Edit gift form
+    const editGiftForm = document.getElementById('edit-gift-form');
+    if (editGiftForm) {
+      editGiftForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('edit-gift-name').value.trim();
+        const priceInput = document.getElementById('edit-gift-price');
+        const price = priceInput.value.trim();
+        const location = document.getElementById('edit-gift-location').value.trim();
+
+        // Validaciones en frontend
+        if (!name) {
+          this.showAlert('Por favor ingresa el nombre del regalo', 'error');
+          return;
+        }
+
+        if (!price) {
+          this.showAlert('Por favor ingresa el precio del regalo', 'error');
+          return;
+        }
+
+        const priceNum = parseInt(price, 10);
+        if (isNaN(priceNum) || priceNum < 1 || priceNum > 100000 || !Number.isInteger(priceNum)) {
+          this.showAlert('El precio debe ser un número entero entre 1 y 100000', 'error');
+          return;
+        }
+
+        if (!location) {
+          this.showAlert('Por favor ingresa dónde encontrar el regalo', 'error');
+          return;
+        }
+
+        this.editGift(this.state.editingGiftId, name, priceNum, location);
+        document.getElementById('edit-gift-modal').classList.remove('active');
+      });
+    }
+
+    // Close edit modal button
+    const closeEditModalBtn = document.getElementById('close-edit-modal');
+    if (closeEditModalBtn) {
+      closeEditModalBtn.addEventListener('click', () => {
+        document.getElementById('edit-gift-modal').classList.remove('active');
+      });
+    }
+
+    // Cancel edit button
+    const cancelEditBtn = document.getElementById('cancel-edit-btn');
+    if (cancelEditBtn) {
+      cancelEditBtn.addEventListener('click', () => {
+        document.getElementById('edit-gift-modal').classList.remove('active');
+      });
+    }
+
     // Close modal on outside click
     const modal = document.getElementById('add-gift-modal');
     if (modal) {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
           modal.classList.remove('active');
+        }
+      });
+    }
+
+    // Close edit modal on outside click
+    const editModal = document.getElementById('edit-gift-modal');
+    if (editModal) {
+      editModal.addEventListener('click', (e) => {
+        if (e.target === editModal) {
+          editModal.classList.remove('active');
         }
       });
     }

@@ -421,6 +421,52 @@ exports.handler = async (event, context) => {
       return sendResponse(200, { success: true });
     }
 
+    // PUT /api/gifts/:giftId - Editar regalo
+    const editMatch = path.match(/^\/api\/gifts\/([^/]+)$/);
+    if (method === 'PUT' && editMatch && !path.includes('/lock') && !path.includes('/unlock')) {
+      const giftId = editMatch[1];
+      const { name, price, location } = JSON.parse(event.body || '{}');
+
+      // Validar que todos los campos estén presentes
+      if (name === undefined || price === undefined || location === undefined) {
+        return sendError(400, 'Los campos nombre, precio y ubicación son requeridos');
+      }
+
+      // Validar cada campo
+      const nameValidation = validateGiftName(name);
+      if (!nameValidation.valid) {
+        return sendError(400, nameValidation.error);
+      }
+
+      const priceValidation = validateGiftPrice(price);
+      if (!priceValidation.valid) {
+        return sendError(400, priceValidation.error);
+      }
+
+      const locationValidation = validateGiftLocation(location);
+      if (!locationValidation.valid) {
+        return sendError(400, locationValidation.error);
+      }
+
+      const gift = await db.collection('gifts').findOne({ id: giftId });
+      if (!gift) return sendError(404, 'Regalo no encontrado');
+
+      const priceAsInt = parseInt(price, 10);
+
+      await db.collection('gifts').updateOne(
+        { id: giftId },
+        {
+          $set: {
+            name,
+            price: priceAsInt,
+            location,
+          }
+        }
+      );
+
+      return sendResponse(200, { giftId, name, price: priceAsInt, location, success: true });
+    }
+
     // DELETE /api/gifts/:giftId - Eliminar regalo
     const deleteMatch = path.match(/^\/api\/gifts\/([^/]+)$/);
     if (method === 'DELETE' && deleteMatch) {
