@@ -4,8 +4,7 @@
   "description": "Gift wishlist sharing application with Netlify Functions",
   "private": true,
   "scripts": {
-    "dev": "netlify dev",
-    "build": "npm install --prefix server && echo 'Build complete'"
+    "dev": "netlify dev"
   },
   "dependencies": {
     "mongodb": "^6.3.0",
