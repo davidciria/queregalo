@@ -121,7 +121,13 @@ exports.handler = async (event, context) => {
     await ensureCollections(db);
 
     const method = event.httpMethod;
-    const path = event.path;
+    // Extraer ruta sin el prefijo de la función
+    // event.path = "/.netlify/functions/api/api/groups"
+    // Necesitamos solo: "/api/groups"
+    const fullPath = event.path;
+    const path = fullPath.replace(/^\/.netlify\/functions\/api/, '');
+
+    console.log('Path:', path, 'Method:', method);
 
     // ============ GROUPS ============
     // POST /api/groups - Crear grupo
