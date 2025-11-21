@@ -62,8 +62,9 @@ async function connectToDatabase() {
       tlsAllowInvalidCertificates: true,
       retryWrites: false,
       maxPoolSize: 1,
-      socketTimeoutMS: 10000,
-      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 3000,
+      connectTimeoutMS: 3000,
     });
 
     await client.connect();
@@ -78,7 +79,11 @@ async function connectToDatabase() {
   }
 }
 
+let collectionsCreated = false;
+
 async function ensureCollections(db) {
+  if (collectionsCreated) return;
+
   try {
     const collections = await db.listCollections().toArray();
     const collectionNames = collections.map(c => c.name);
@@ -100,7 +105,7 @@ async function ensureCollections(db) {
       await db.collection('gifts').createIndex({ user_id: 1 });
     }
 
-    console.log('✅ Collections ready');
+    collectionsCreated = true;
   } catch (error) {
     console.log('Collections already exist or cannot create');
   }
