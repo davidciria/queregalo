@@ -279,7 +279,8 @@ class QueRegaloApp {
         throw new Error(error.error);
       }
       await this.fetchAllGifts();
-      this.setLoading(false);
+      this.state.loading = false;
+      this.state.loadingMessage = '';
       this.renderWithScroll(scrollPos);
     } catch (error) {
       console.error('Error al bloquear regalo:', error);
@@ -302,7 +303,8 @@ class QueRegaloApp {
         throw new Error(error.error);
       }
       await this.fetchAllGifts();
-      this.setLoading(false);
+      this.state.loading = false;
+      this.state.loadingMessage = '';
       this.renderWithScroll(scrollPos);
     } catch (error) {
       console.error('Error al desbloquear regalo:', error);
@@ -526,10 +528,12 @@ class QueRegaloApp {
   renderWithScroll(scrollPos) {
     this.render();
     requestAnimationFrame(() => {
-      const content = document.querySelector('.content');
-      if (content) {
-        content.scrollTop = scrollPos;
-      }
+      requestAnimationFrame(() => {
+        const content = document.querySelector('.content');
+        if (content) {
+          content.scrollTop = scrollPos;
+        }
+      });
     });
   }
 
