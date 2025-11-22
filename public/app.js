@@ -328,8 +328,19 @@ class QueRegaloApp {
   }
 
   toggleUserGifts(userName) {
+    const content = document.querySelector('.content');
+    const scrollPos = content ? content.scrollTop : 0;
+
     this.state.expandedUsers[userName] = !this.state.expandedUsers[userName];
     this.render();
+
+    // Restaurar scroll después de que se renderice
+    setTimeout(() => {
+      const content = document.querySelector('.content');
+      if (content) {
+        content.scrollTop = scrollPos;
+      }
+    }, 0);
   }
 
   async deleteGift(giftId) {
