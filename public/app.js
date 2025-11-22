@@ -267,9 +267,10 @@ class QueRegaloApp {
 
   async lockGift(giftId) {
     try {
-      this.setLoading(true, 'Bloqueando regalo...');
       const content = document.querySelector('.content');
       const scrollPos = content ? content.scrollTop : 0;
+
+      this.setLoading(true, 'Bloqueando regalo...');
       const response = await this.apiCall(`/gifts/${giftId}/lock`, {
         method: 'PUT',
         body: JSON.stringify({ lockedBy: this.state.userId }),
@@ -279,9 +280,15 @@ class QueRegaloApp {
         throw new Error(error.error);
       }
       await this.fetchAllGifts();
-      this.state.loading = false;
-      this.state.loadingMessage = '';
-      this.renderWithScroll(scrollPos);
+      this.setLoading(false);
+
+      // Restaurar scroll después de que se renderice
+      setTimeout(() => {
+        const content = document.querySelector('.content');
+        if (content) {
+          content.scrollTop = scrollPos;
+        }
+      }, 0);
     } catch (error) {
       console.error('Error al bloquear regalo:', error);
       this.setLoading(false);
@@ -291,9 +298,10 @@ class QueRegaloApp {
 
   async unlockGift(giftId) {
     try {
-      this.setLoading(true, 'Desbloqueando regalo...');
       const content = document.querySelector('.content');
       const scrollPos = content ? content.scrollTop : 0;
+
+      this.setLoading(true, 'Desbloqueando regalo...');
       const response = await this.apiCall(`/gifts/${giftId}/unlock`, {
         method: 'PUT',
         body: JSON.stringify({ unlockedBy: this.state.userId }),
@@ -303,9 +311,15 @@ class QueRegaloApp {
         throw new Error(error.error);
       }
       await this.fetchAllGifts();
-      this.state.loading = false;
-      this.state.loadingMessage = '';
-      this.renderWithScroll(scrollPos);
+      this.setLoading(false);
+
+      // Restaurar scroll después de que se renderice
+      setTimeout(() => {
+        const content = document.querySelector('.content');
+        if (content) {
+          content.scrollTop = scrollPos;
+        }
+      }, 0);
     } catch (error) {
       console.error('Error al desbloquear regalo:', error);
       this.setLoading(false);
@@ -523,18 +537,6 @@ class QueRegaloApp {
     }
 
     this.attachEventListeners();
-  }
-
-  renderWithScroll(scrollPos) {
-    this.render();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const content = document.querySelector('.content');
-        if (content) {
-          content.scrollTop = scrollPos;
-        }
-      });
-    });
   }
 
   renderLanding() {
