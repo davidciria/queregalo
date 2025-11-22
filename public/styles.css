@@ -381,6 +381,7 @@ body {
   margin-bottom: 14px;
   padding-bottom: 10px;
   border-bottom: 2px solid var(--light-color);
+  background-color: #76e2cb;
 }
 
 .user-section-title.expandable {
