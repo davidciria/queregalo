@@ -10,6 +10,7 @@ class QueRegaloApp {
       allGifts: [],
       myGifts: [],
       otherUsersGifts: {},
+      expandedUsers: {},
       loading: false,
       loadingMessage: '',
     };
@@ -310,6 +311,11 @@ class QueRegaloApp {
     }
   }
 
+  toggleUserGifts(userName) {
+    this.state.expandedUsers[userName] = !this.state.expandedUsers[userName];
+    this.render();
+  }
+
   async deleteGift(giftId) {
     if (!confirm('¿Estás seguro de que deseas eliminar este regalo?')) return;
 
@@ -519,10 +525,12 @@ class QueRegaloApp {
 
   renderWithScroll(scrollPos) {
     this.render();
-    const content = document.querySelector('.content');
-    if (content) {
-      content.scrollTop = scrollPos;
-    }
+    requestAnimationFrame(() => {
+      const content = document.querySelector('.content');
+      if (content) {
+        content.scrollTop = scrollPos;
+      }
+    });
   }
 
   renderLanding() {
@@ -670,42 +678,45 @@ class QueRegaloApp {
             ` : `
               ${Object.entries(this.state.otherUsersGifts).map(([userName, gifts]) => `
                 <div class="user-section">
-                  <div class="user-section-title">
+                  <div class="user-section-title expandable" data-toggle-user="${userName}">
+                    <span class="toggle-icon">${this.state.expandedUsers[userName] ? '▼' : '▶'}</span>
                     👤 ${userName}
                   </div>
-                  ${gifts.map(gift => `
-                    <div class="gift-card ${gift.locked_by ? 'locked' : ''}">
-                      <div class="gift-header">
-                        <span class="gift-name">${gift.name}</span>
-                        <span class="gift-price">${this.formatPrice(gift.price)}</span>
-                      </div>
-                      <div class="gift-location">
-                        <span class="gift-location-label">Dónde encontrarlo:</span> ${this.formatLocation(gift.location)}
-                      </div>
-                      ${gift.locked_by ? `
-                        ${gift.locked_by === this.state.userId ? `
-                          <div class="gift-status gift-status-locked">
-                            ✓ Tú estás regalando esto
-                          </div>
+                  ${this.state.expandedUsers[userName] ? `
+                    ${gifts.map(gift => `
+                      <div class="gift-card ${gift.locked_by ? 'locked' : ''}">
+                        <div class="gift-header">
+                          <span class="gift-name">${gift.name}</span>
+                          <span class="gift-price">${this.formatPrice(gift.price)}</span>
+                        </div>
+                        <div class="gift-location">
+                          <span class="gift-location-label">Dónde encontrarlo:</span> ${this.formatLocation(gift.location)}
+                        </div>
+                        ${gift.locked_by ? `
+                          ${gift.locked_by === this.state.userId ? `
+                            <div class="gift-status gift-status-locked">
+                              ✓ Tú estás regalando esto
+                            </div>
+                            <div class="gift-actions">
+                              <button class="button button-danger button-small" data-unlock-gift="${gift.id}">
+                                Desbloquear
+                              </button>
+                            </div>
+                          ` : `
+                            <div class="gift-status gift-status-locked">
+                              🔒 Regalo bloqueado
+                            </div>
+                          `}
+                        ` : `
                           <div class="gift-actions">
-                            <button class="button button-danger button-small" data-unlock-gift="${gift.id}">
-                              Desbloquear
+                            <button class="button button-success button-small" data-lock-gift="${gift.id}">
+                              Quiero regalarlo
                             </button>
                           </div>
-                        ` : `
-                          <div class="gift-status gift-status-locked">
-                            🔒 Regalo bloqueado
-                          </div>
                         `}
-                      ` : `
-                        <div class="gift-actions">
-                          <button class="button button-success button-small" data-lock-gift="${gift.id}">
-                            Quiero regalarlo
-                          </button>
-                        </div>
-                      `}
-                    </div>
-                  `).join('')}
+                      </div>
+                    `).join('')}
+                  ` : ``}
                 </div>
               `).join('')}
             `}
@@ -950,6 +961,14 @@ class QueRegaloApp {
     unlockGiftBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         this.unlockGift(btn.dataset.unlockGift);
+      });
+    });
+
+    // Toggle user gifts
+    const toggleUserBtns = document.querySelectorAll('[data-toggle-user]');
+    toggleUserBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.toggleUserGifts(btn.dataset.toggleUser);
       });
     });
 
